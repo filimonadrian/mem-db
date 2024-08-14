@@ -1,15 +1,13 @@
-package main
+package server
 
 import (
 	"encoding/json"
 	"fmt"
+	api "mem-db/pkg/api"
+	router "mem-db/pkg/api/http/router"
 	"net/http"
 	"strings"
 )
-
-type Router struct {
-	routes map[string]map[string]http.HandlerFunc
-}
 
 type WordResponse struct {
 	Word        string `json:"word"`
@@ -20,10 +18,6 @@ type TextInput struct {
 	Text string `json:"text"`
 }
 
-type Config struct {
-	Port int `json:"port"`
-}
-
 type Response struct {
 	Status     string         `json:"status"`
 	StatusCode int            `json:"statusCode"`
@@ -31,49 +25,30 @@ type Response struct {
 	Message    string         `json:"message,omitempty"`
 }
 
-func NewRouter() *Router {
-	router := &Router{
-		routes: make(map[string]map[string]http.HandlerFunc),
+type HTTPServer struct {
+	router *router.Router
+	server *http.Server
+}
+
+func NewServer(port int) api.Server {
+	r := router.NewRouter()
+
+	r.AddRoute("GET", "/words/occurences", getWordOccurences)
+	r.AddRoute("POST", "/words/register", registerWords)
+
+	return &HTTPServer{
+		router: r,
+		server: &http.Server{
+			Addr:    fmt.Sprintf(":%d", port),
+			Handler: r,
+		},
 	}
-
-	router.addRoute("GET", "/words/occurences", getWordOccurences)
-	router.addRoute("POST", "/words/register", registerWords)
-
-	return router
 }
 
-// add CORS headers to the response
-func corsMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Set CORS headers
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, GET")
-		w.Header().Set("Access-Control-Allow-Headers", "X-Requested-With, Content-Type, Authorization, Origin, application/json")
+func (s *HTTPServer) Start() error {
 
-		// Call the next handler
-		next.ServeHTTP(w, r)
-	})
-}
-
-func (r *Router) addRoute(method, path string, handlerFunc http.HandlerFunc) {
-	if r.routes[path] == nil {
-		r.routes[path] = make(map[string]http.HandlerFunc)
-	}
-	r.routes[path][method] = handlerFunc
-}
-
-func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	handler := corsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if handlers, ok := r.routes[req.URL.Path]; ok {
-			if handlerFunc, methodExists := handlers[req.Method]; methodExists {
-				handlerFunc(w, req)
-				return
-			}
-		}
-		http.NotFound(w, req)
-	}))
-
-	handler.ServeHTTP(w, req)
+	fmt.Printf("Listening on %s.. \n", s.server.Addr)
+	return s.server.ListenAndServe()
 }
 
 // GET /words/occurences?terms=apple,banana,orange
@@ -132,30 +107,4 @@ func registerWords(w http.ResponseWriter, r *http.Request) {
 		Status:     "Success",
 		StatusCode: http.StatusOK,
 		Message:    "Text processed successfully"})
-
-}
-
-func StartServer(config Config) {
-
-	router := NewRouter()
-
-	server := http.Server{
-		Addr:    fmt.Sprintf(":%d", config.Port),
-		Handler: router,
-	}
-
-	fmt.Printf("listening to port %d.. \n", config.Port)
-	err := server.ListenAndServe()
-	if err != nil {
-		panic(err)
-	}
-}
-
-func main() {
-
-	config := Config{
-		Port: 8080,
-	}
-
-	StartServer(config)
 }
