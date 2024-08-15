@@ -3,12 +3,14 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	repo "mem-db/pkg/repository"
 	"os"
 )
 
 type Config struct {
-	Port    int  `json:"port"`
-	UseGRPC bool `json:"useGRPC"`
+	Port       int             `json:"port"`
+	UseGRPC    bool            `json:"useGRPC"`
+	WALOptions repo.WALOptions `json:"walOptions"`
 }
 
 func ReadConfig(filePath string) (*Config, error) {

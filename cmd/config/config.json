@@ -1,4 +1,9 @@
 {
     "port": 8080,
-    "useGRPC": false
+    "useGRPC": false,
+    "walOptions": {
+        "walFilePath": "/home/adrian/Documents/mem-db/data/wal-file.wal",
+        "syncTimer": 10,
+        "syncMaxBytes": 1000
+    }
 }
