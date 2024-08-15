@@ -1,6 +1,7 @@
 package grpc
 
 import (
+	"context"
 	"fmt"
 	"google.golang.org/grpc"
 	"log"
@@ -26,4 +27,8 @@ func (s *GRPCServer) Start() error {
 
 	log.Printf("gRPC server listening at %v", lis.Addr())
 	return s.grpcServer.Serve(lis)
+}
+
+func (s *GRPCServer) Stop(ctx context.Context) error {
+	return nil
 }
