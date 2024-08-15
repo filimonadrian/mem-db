@@ -17,6 +17,10 @@ build: tidy
 run: build
 	./${BINARY_NAME} cmd/config/config.json
 
+.PHONY: test
+test: build
+	go test -v ./...
+
 .PHONY: clean
 clean: build
 	rm ${BINARY_NAME}
