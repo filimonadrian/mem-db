@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	log "mem-db/cmd/logger"
 	api "mem-db/pkg/api"
 	router "mem-db/pkg/api/http/router"
 	service "mem-db/pkg/service"
@@ -25,9 +26,10 @@ type Response struct {
 type HTTPServer struct {
 	server  *http.Server
 	service service.WordService
+	logger  log.Logger
 }
 
-func NewServer(port int, svc service.WordService) api.Server {
+func NewServer(ctx context.Context, port int, svc service.WordService) api.Server {
 	r := router.NewRouter()
 
 	server := &HTTPServer{
@@ -36,6 +38,7 @@ func NewServer(port int, svc service.WordService) api.Server {
 			Handler: r,
 		},
 		service: svc,
+		logger:  ctx.Value(log.LoggerKey).(log.Logger),
 	}
 
 	r.AddRoute("GET", "/words/occurences", server.getWordOccurences)
@@ -46,7 +49,7 @@ func NewServer(port int, svc service.WordService) api.Server {
 
 func (s *HTTPServer) Start() error {
 
-	fmt.Printf("Listening on %s.. \n", s.server.Addr)
+	s.logger.Info("Http server listening on port ", s.server.Addr)
 	if err := s.server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("HTTP server error: %v", err)
 	}
@@ -55,7 +58,7 @@ func (s *HTTPServer) Start() error {
 
 func (s *HTTPServer) Stop(ctx context.Context) error {
 
-	fmt.Printf("Shutting down server %s.. \n", s.server.Addr)
+	s.logger.Info("Shutting down http server on port ", s.server.Addr)
 	return s.server.Shutdown(ctx)
 }
 
@@ -64,6 +67,8 @@ func (s *HTTPServer) getWordOccurences(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.URL.Query())
 	query := r.URL.Query()
 	terms := query["terms"]
+
+	s.logger.Info(fmt.Sprintf("%s %s", r.Method, r.URL))
 
 	if len(terms) == 0 {
 		json.NewEncoder(w).Encode(&Response{

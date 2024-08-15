@@ -6,6 +6,7 @@ import (
 	"os"
 	// "path/filepath"
 	"context"
+	log "mem-db/cmd/logger"
 	"sync"
 	"time"
 )
@@ -23,14 +24,16 @@ type WriteAheadLog struct {
 	syncTimer    *time.Ticker
 	file         *os.File
 	syncMaxBytes int64
+	logger       log.Logger
 }
 
-func NewWAL(options *WALOptions) *WriteAheadLog {
+func NewWAL(ctx context.Context, options *WALOptions) *WriteAheadLog {
 
 	wal := &WriteAheadLog{
 		walFilePath:  options.WalFilePath,
 		syncTimer:    time.NewTicker(time.Duration(options.SyncTimer) * time.Second),
 		syncMaxBytes: int64(options.SyncMaxBytes),
+		logger:       ctx.Value(log.LoggerKey).(log.Logger),
 	}
 
 	return wal
@@ -84,10 +87,10 @@ func (wal *WriteAheadLog) createWALFile() error {
 func (wal *WriteAheadLog) KeepSyncing(ctx context.Context) {
 	for {
 		select {
-		case t := <-wal.syncTimer.C:
-			fmt.Println("Tick at ", t)
+		case <-wal.syncTimer.C:
 			wal.mutex.Lock()
 
+			wal.logger.Debug("Ticker for flushing data")
 			err := wal.Sync()
 			if err != nil {
 				fmt.Printf("Error while performing sync %v", err.Error())
@@ -95,12 +98,13 @@ func (wal *WriteAheadLog) KeepSyncing(ctx context.Context) {
 			wal.mutex.Unlock()
 		case <-ctx.Done():
 			wal.mutex.Lock()
-			defer wal.mutex.Unlock()
 
+			wal.logger.Debug("Flushing buffer before stopping the app")
 			err := wal.Sync()
 			if err != nil {
 				fmt.Printf("Error while performing sync %v", err.Error())
 			}
+			wal.mutex.Unlock()
 			wal.Close()
 			return
 		}
@@ -110,6 +114,7 @@ func (wal *WriteAheadLog) KeepSyncing(ctx context.Context) {
 // writes data to the disk
 func (wal *WriteAheadLog) Sync() error {
 	err := wal.bufWriter.Flush()
+	wal.logger.Info("Flushing Data..")
 	if err != nil {
 		return fmt.Errorf("Cannot flush data: %v", err.Error())
 	}

@@ -1,16 +1,19 @@
 package repository
 
 import (
+	"context"
 	"fmt"
+	// log "mem-db/cmd/logger"
 	"os"
 	"path/filepath"
 )
 
 // receives the entire database config
-func InitDBSystem(options *WALOptions) (*Database, *WriteAheadLog, error) {
+func InitDBSystem(ctx context.Context, options *WALOptions) (*Database, *WriteAheadLog, error) {
 
 	var wal *WriteAheadLog
 
+	// logger := ctx.Value(log.LoggerKey).(log.Logger),
 	walFilePath := options.WalFilePath
 	// check if the path exists
 	dir := filepath.Dir(walFilePath)
@@ -18,7 +21,7 @@ func InitDBSystem(options *WALOptions) (*Database, *WriteAheadLog, error) {
 		return nil, nil, fmt.Errorf("The directory does not exist: %s", dir)
 	}
 
-	wal = NewWAL(options)
+	wal = NewWAL(ctx, options)
 
 	// check if the file exists
 	_, err := os.Stat(walFilePath)
@@ -28,7 +31,7 @@ func InitDBSystem(options *WALOptions) (*Database, *WriteAheadLog, error) {
 			return nil, nil, err
 		}
 
-		return NewDatabase(), wal, nil
+		return NewDatabase(ctx), wal, nil
 
 		// other issues with file
 	} else if err != nil {

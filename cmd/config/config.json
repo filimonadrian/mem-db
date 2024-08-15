@@ -1,9 +1,20 @@
 {
-    "port": 8080,
-    "useGRPC": false,
+    "apiOptions": {
+        "port": 8080,
+        "useGRPC": false
+    },
+    "replicationOptions": {
+        "master": true,
+        "maxWorkers": 5
+    },
     "walOptions": {
-        "walFilePath": "/home/adrian/Documents/mem-db/data/wal-file.wal",
+        "walFilePath": "data/wal-file.wal",
         "syncTimer": 10,
         "syncMaxBytes": 1000
+    },
+    "loggerOptions": {
+        "console": true,
+        "logLevel": "debug",
+        "logFilepath": "data/memdb.log"
     }
 }

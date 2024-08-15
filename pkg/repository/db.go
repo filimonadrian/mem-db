@@ -1,20 +1,23 @@
 package repository
 
 import (
+	"context"
+	log "mem-db/cmd/logger"
 	"sync"
 )
 
 type Database struct {
 	datastore *sync.Map
-	mutex     sync.RWMutex
+	logger    log.Logger
 }
 
 type Repository interface {
 }
 
-func NewDatabase() *Database {
+func NewDatabase(ctx context.Context) *Database {
 	return &Database{
 		datastore: &sync.Map{},
+		logger:    ctx.Value(log.LoggerKey).(log.Logger),
 	}
 }
 

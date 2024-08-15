@@ -6,6 +6,7 @@ import (
 	"google.golang.org/grpc"
 	"log"
 	"mem-db/pkg/api"
+	service "mem-db/pkg/service"
 	"net"
 )
 
@@ -13,7 +14,7 @@ type GRPCServer struct {
 	grpcServer *grpc.Server
 }
 
-func NewServer() api.Server {
+func NewServer(ctx context.Context, svc service.WordService) api.Server {
 	return &GRPCServer{
 		grpcServer: grpc.NewServer(),
 	}

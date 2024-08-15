@@ -1,7 +1,9 @@
 package service
 
 import (
+	"context"
 	"fmt"
+	log "mem-db/cmd/logger"
 	repo "mem-db/pkg/repository"
 	"strings"
 	"sync"
@@ -9,8 +11,9 @@ import (
 )
 
 type wordService struct {
-	db  *repo.Database
-	wal *repo.WriteAheadLog
+	db     *repo.Database
+	wal    *repo.WriteAheadLog
+	logger log.Logger
 }
 
 type WordService interface {
@@ -23,10 +26,11 @@ type WordResponse struct {
 	Occurrences int    `json:"occurrences"`
 }
 
-func NewService(db *repo.Database, wal *repo.WriteAheadLog) WordService {
+func NewService(ctx context.Context, db *repo.Database, wal *repo.WriteAheadLog) WordService {
 	return &wordService{
-		db:  db,
-		wal: wal,
+		db:     db,
+		wal:    wal,
+		logger: ctx.Value(log.LoggerKey).(log.Logger),
 	}
 }
 
