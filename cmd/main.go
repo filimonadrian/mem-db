@@ -15,13 +15,6 @@ import (
 	"time"
 )
 
-// func closeApp(ctx context.Context) {
-// 	for {
-// 		select <-
-// 	}
-
-// }
-
 func main() {
 	if len(os.Args) < 2 {
 		panic("Config file path is missing!")
