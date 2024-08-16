@@ -1,7 +1,9 @@
 {
-    "apiOptions": {
-        "port": 8080,
-        "useGRPC": false
+    "serviceOptions": {
+        "apiOptions": {
+            "port": 8080,
+            "useGRPC": false
+        }
     },
     "replicationOptions": {
         "master": true,

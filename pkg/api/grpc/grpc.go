@@ -20,7 +20,7 @@ func NewServer(ctx context.Context, svc service.WordService) api.Server {
 	}
 }
 
-func (s *GRPCServer) Start() error {
+func (s *GRPCServer) Start(ctx context.Context) error {
 	lis, err := net.Listen("tcp", ":50051")
 	if err != nil {
 		return fmt.Errorf("Failed to listen on port 50051: %v", err)

@@ -1,21 +1,37 @@
-package cmd
+package config
 
 import (
 	"encoding/json"
 	"fmt"
 	logger "mem-db/cmd/logger"
-	api "mem-db/pkg/api"
-	rep "mem-db/pkg/replication"
-	repo "mem-db/pkg/repository"
 	"os"
 )
 
+type ApiOptions struct {
+	Port    int  `json:"port"`
+	UseGRPC bool `json:"useGRPC"`
+}
+
+type ServiceOptions struct {
+	ApiOptions *ApiOptions `json:"apiOptions"`
+}
+
+type ReplicationOptions struct {
+	Master     bool `json:"master"`
+	MaxWorkers int  `json:"maxWorkers"`
+}
+
+type WALOptions struct {
+	WalFilePath  string `json:"walFilePath"`
+	SyncTimer    int    `json:"syncTimer"`
+	SyncMaxBytes int    `json:"syncMaxBytes"`
+}
+
 type Config struct {
-	ApiOptions         api.ApiOptions         `json:apiOptions`
-	Master             bool                   `json:"master"`
-	WALOptions         repo.WALOptions        `json:"walOptions"`
-	LoggerOptions      logger.LoggerOptions   `json:"loggerOptions"`
-	ReplicationOptions rep.ReplicationOptions `json:"replicationOptions"`
+	ServiceOptions     ServiceOptions       `json:"serviceOptions"`
+	ReplicationOptions ReplicationOptions   `json:"replicationOptions"`
+	WALOptions         WALOptions           `json:"walOptions"`
+	LoggerOptions      logger.LoggerOptions `json:"loggerOptions"`
 }
 
 func ReadConfig(filePath string) (*Config, error) {

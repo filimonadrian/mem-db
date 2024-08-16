@@ -6,16 +6,11 @@ import (
 	"os"
 	// "path/filepath"
 	"context"
+	config "mem-db/cmd/config"
 	log "mem-db/cmd/logger"
 	"sync"
 	"time"
 )
-
-type WALOptions struct {
-	WalFilePath  string `json:"walFilePath"`
-	SyncTimer    int    `json:"syncTimer"`
-	SyncMaxBytes int    `json:"syncMaxBytes"`
-}
 
 type WriteAheadLog struct {
 	walFilePath  string
@@ -27,7 +22,7 @@ type WriteAheadLog struct {
 	logger       log.Logger
 }
 
-func NewWAL(ctx context.Context, options *WALOptions) *WriteAheadLog {
+func NewWAL(ctx context.Context, options *config.WALOptions) *WriteAheadLog {
 
 	wal := &WriteAheadLog{
 		walFilePath:  options.WalFilePath,
@@ -43,7 +38,7 @@ func (wal *WriteAheadLog) SetFile(file *os.File) {
 	wal.file = file
 }
 
-func (wal *WriteAheadLog) Init() error {
+func (wal *WriteAheadLog) Init(ctx context.Context) error {
 	if wal.file == nil {
 		if err := wal.createWALFile(); err != nil {
 			return err
@@ -51,7 +46,7 @@ func (wal *WriteAheadLog) Init() error {
 	}
 
 	wal.bufWriter = bufio.NewWriter(wal.file)
-	// go wal.keepSyncing()
+	go wal.KeepSyncing(ctx)
 
 	return nil
 }
@@ -79,8 +74,8 @@ func (wal *WriteAheadLog) createWALFile() error {
 
 	fmt.Printf("WALFile %s created.\n", walFilePath)
 	wal.file = file
-	return nil
 
+	return nil
 }
 
 // keepSyncing periodically triggers a synchronous write to the disk to ensure data durability.
@@ -93,7 +88,7 @@ func (wal *WriteAheadLog) KeepSyncing(ctx context.Context) {
 			wal.logger.Debug("Ticker for flushing data")
 			err := wal.Sync()
 			if err != nil {
-				fmt.Printf("Error while performing sync %v", err.Error())
+				wal.logger.Error(fmt.Sprintf("Error while performing sync %v", err.Error()))
 			}
 			wal.mutex.Unlock()
 		case <-ctx.Done():
@@ -102,7 +97,7 @@ func (wal *WriteAheadLog) KeepSyncing(ctx context.Context) {
 			wal.logger.Debug("Flushing buffer before stopping the app")
 			err := wal.Sync()
 			if err != nil {
-				fmt.Printf("Error while performing sync %v", err.Error())
+				wal.logger.Error(fmt.Sprintf("Error while performing sync %v", err.Error()))
 			}
 			wal.mutex.Unlock()
 			wal.Close()

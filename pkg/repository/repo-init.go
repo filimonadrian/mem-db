@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 	// log "mem-db/cmd/logger"
+	config "mem-db/cmd/config"
 	"os"
 	"path/filepath"
 )
 
 // receives the entire database config
-func InitDBSystem(ctx context.Context, options *WALOptions) (*Database, *WriteAheadLog, error) {
+func InitDBSystem(ctx context.Context, options *config.WALOptions) (*Database, *WriteAheadLog, error) {
 
 	var wal *WriteAheadLog
 
@@ -27,7 +28,7 @@ func InitDBSystem(ctx context.Context, options *WALOptions) (*Database, *WriteAh
 	_, err := os.Stat(walFilePath)
 
 	if os.IsNotExist(err) {
-		if err := wal.Init(); err != nil {
+		if err := wal.Init(ctx); err != nil {
 			return nil, nil, err
 		}
 
@@ -47,7 +48,7 @@ func InitDBSystem(ctx context.Context, options *WALOptions) (*Database, *WriteAh
 	}
 
 	wal.SetFile(file)
-	wal.Init()
+	wal.Init(ctx)
 	return &Database{
 			datastore: datastore,
 		},
