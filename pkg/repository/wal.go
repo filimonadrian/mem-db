@@ -88,7 +88,7 @@ func (wal *WriteAheadLog) KeepSyncing(ctx context.Context) {
 			wal.logger.Debug("Ticker for flushing data")
 			err := wal.Sync()
 			if err != nil {
-				wal.logger.Error(fmt.Sprintf("Error while performing sync %v", err.Error()))
+				wal.logger.Error(fmt.Sprintf("Error while performing sync: %v", err.Error()))
 			}
 			wal.mutex.Unlock()
 		case <-ctx.Done():
@@ -97,7 +97,7 @@ func (wal *WriteAheadLog) KeepSyncing(ctx context.Context) {
 			wal.logger.Debug("Flushing buffer before stopping the app")
 			err := wal.Sync()
 			if err != nil {
-				wal.logger.Error(fmt.Sprintf("Error while performing sync %v", err.Error()))
+				wal.logger.Error(fmt.Sprintf("Error while performing sync: %v", err.Error()))
 			}
 			wal.mutex.Unlock()
 			wal.Close()

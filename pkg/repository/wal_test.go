@@ -2,6 +2,9 @@ package repository
 
 import (
 	"bytes"
+	"context"
+	config "mem-db/cmd/config"
+	log "mem-db/cmd/logger"
 	"os"
 	"testing"
 	"time"
@@ -24,15 +27,30 @@ import (
 // 	return words
 // }
 
+func getLoggerContext() context.Context {
+	options := &log.LoggerOptions{
+		LogLevel:    "info",
+		LogFilepath: "mem-db/data/mem-db.log",
+		Console:     true,
+	}
+
+	logger, _ := log.NewConsoleLogger(options)
+
+	ctx := context.WithValue(context.Background(), log.LoggerKey, logger)
+
+	return ctx
+}
+
 func TestInit(t *testing.T) {
-	options := &WALOptions{
+	options := &config.WALOptions{
 		WalFilePath:  "/home/adrian/Documents/mem-db/data/test_wal.log",
 		SyncTimer:    2,
 		SyncMaxBytes: 1024,
 	}
-	wal := NewWAL(options)
+	ctx := getLoggerContext()
+	wal := NewWAL(ctx, options)
 
-	err := wal.Init()
+	err := wal.Init(ctx)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -46,13 +64,15 @@ func TestInit(t *testing.T) {
 }
 
 func TestWrite(t *testing.T) {
-	options := &WALOptions{
+	options := &config.WALOptions{
 		WalFilePath:  "/home/adrian/Documents/mem-db/data/test_wal.log",
 		SyncTimer:    1,
 		SyncMaxBytes: 1024,
 	}
-	wal := NewWAL(options)
-	wal.Init()
+
+	ctx := getLoggerContext()
+	wal := NewWAL(ctx, options)
+	wal.Init(ctx)
 
 	data := []byte("Hello, World!")
 	err := wal.Write(data)
@@ -81,13 +101,15 @@ func TestWrite(t *testing.T) {
 }
 
 func TestSync(t *testing.T) {
-	options := &WALOptions{
+	options := &config.WALOptions{
 		WalFilePath:  "/home/adrian/Documents/mem-db/data/test_wal.log",
 		SyncTimer:    1,
 		SyncMaxBytes: 1024,
 	}
-	wal := NewWAL(options)
-	wal.Init()
+	ctx := getLoggerContext()
+
+	wal := NewWAL(ctx, options)
+	wal.Init(ctx)
 
 	emptyData := []byte("")
 	data := []byte("Testing Sync func!")
@@ -123,18 +145,23 @@ func TestSync(t *testing.T) {
 }
 
 func TestKeepSyncing(t *testing.T) {
-	options := &WALOptions{
+	options := &config.WALOptions{
 		WalFilePath:  "/home/adrian/Documents/mem-db/data/test_wal.log",
 		SyncTimer:    5,
 		SyncMaxBytes: 1024,
 	}
-	wal := NewWAL(options)
-	wal.Init()
+
+	ctx := getLoggerContext()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	wal := NewWAL(ctx, options)
+	wal.Init(ctx)
 
 	emptyData := []byte("")
 	data := []byte("Test Keep Syncing")
 
-	go wal.keepSyncing()
+	go wal.KeepSyncing(ctx)
 	wal.Write(data)
 
 	emptyContent, err := os.ReadFile(options.WalFilePath)

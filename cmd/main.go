@@ -20,10 +20,10 @@ func Shutdown(ctx context.Context, dbService service.Service, nodeService node.N
 		shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 4*time.Second)
 		defer shutdownRelease()
 		if err := dbService.Stop(shutdownCtx); err != nil {
-			return fmt.Errorf("Error while stopping DB service: ", err.Error())
+			return fmt.Errorf("Error while stopping DB service: %v", err.Error())
 		}
 		if err := nodeService.Stop(shutdownCtx); err != nil {
-			return fmt.Errorf("Error while stopping Node Service: ", err.Error())
+			return fmt.Errorf("Error while stopping Node Service: %v", err.Error())
 		}
 
 	}
