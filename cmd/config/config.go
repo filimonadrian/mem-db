@@ -23,9 +23,10 @@ type WALOptions struct {
 }
 
 type NodeOptions struct {
-	Name       string      `json:"name"`
-	MasterID   string      `json:"masterID,omitempty"`
-	ApiOptions *ApiOptions `json:"apiOptions"`
+	Name              string      `json:"name"`
+	MasterID          string      `json:"masterID,omitempty"`
+	HeartbeatInterval int         `json:"heartbeatInterval"`
+	ApiOptions        *ApiOptions `json:"apiOptions"`
 }
 
 type Config struct {

@@ -2,13 +2,18 @@ package node
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	config "mem-db/cmd/config"
+	log "mem-db/cmd/logger"
+	httpserver "mem-db/pkg/api/http/server"
 	"net/http"
 )
 
 type WorkerHttpServer struct {
 	server *httpserver.HTTPServer
 	logger log.Logger
-	node   *Node
+	// node   *Node
 }
 
 func NewWorkerHttpServer(ctx context.Context, options *config.NodeOptions, node *Node) *WorkerHttpServer {
@@ -17,22 +22,22 @@ func NewWorkerHttpServer(ctx context.Context, options *config.NodeOptions, node 
 		logger: ctx.Value(log.LoggerKey).(log.Logger),
 	}
 
-	httpServer.server.Router.AddRoute("POST", "/worker/workers-list", httpServer.updateWorkersList)
-	httpServer.server.Router.AddRoute("POST", "/worker/master-id", httpServer.updateMasterID)
-	httpServer.server.Router.AddRoute("POST", "/worker/heartbeat", httpServer.heartbeat)
+	httpServer.server.Router.AddRoute("POST", "/worker/workers-list", node.updateWorkersList)
+	httpServer.server.Router.AddRoute("POST", "/worker/master-id", node.updateMasterID)
+	httpServer.server.Router.AddRoute("POST", "/worker/heartbeat", node.heartbeat)
 
 	return httpServer
 }
 
-func (s *WorkerHttpServer) Start(ctx context.Context) {
-	s.server.Start()
+func (s *WorkerHttpServer) Start() error {
+	return s.server.Start()
 }
 
 func (s *WorkerHttpServer) Stop(ctx context.Context) error {
 	return s.server.Stop(ctx)
 }
 
-func (s *WorkerHttpServer) updateWorkersList(w http.ResponseWriter, r *http.Request) {
+func (n *Node) updateWorkersList(w http.ResponseWriter, r *http.Request) {
 	var workersMap map[string]struct{}
 
 	err := json.NewDecoder(r.Body).Decode(&workersMap)
@@ -42,7 +47,7 @@ func (s *WorkerHttpServer) updateWorkersList(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Update the workers list
-	err = s.node.UpdateWorkersList(workersMap)
+	err = n.UpdateWorkersList(workersMap)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to update workers list: %v", err), http.StatusInternalServerError)
 		return
@@ -51,7 +56,7 @@ func (s *WorkerHttpServer) updateWorkersList(w http.ResponseWriter, r *http.Requ
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *WorkerHttpServer) updateMasterID(w http.ResponseWriter, r *http.Request) {
+func (n *Node) updateMasterID(w http.ResponseWriter, r *http.Request) {
 	var masterID string
 
 	err := json.NewDecoder(r.Body).Decode(&masterID)
@@ -60,10 +65,10 @@ func (s *WorkerHttpServer) updateMasterID(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	s.node.UpdateMasterID()
+	n.UpdateMasterID(masterID)
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *WorkerHttpServer) heartbeat(w http.ResponseWriter, r *http.Request) {
+func (n *Node) heartbeat(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }

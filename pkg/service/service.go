@@ -31,19 +31,5 @@ func InitService(ctx context.Context, config *config.Config) Service {
 	// }
 	dbService = NewDBHttpServer(ctx, &config.ServiceOptions, wordService)
 
-	// handle gracefully shutdown
-	// go func(ctx context.Context) {
-	// 	select {
-	// 	case <-ctx.Done():
-	// 		shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 4*time.Second)
-	// 		defer shutdownRelease()
-	// 		if err := dbService.Stop(shutdownCtx); err != nil {
-	// 			// fmt.Printf("Error while stopping the server: %v\n", err.Error())
-	// 			fmt.Println("Error while stopping the server: ", err.Error())
-
-	// 		}
-	// 	}
-	// }(ctx)
-
 	return dbService
 }

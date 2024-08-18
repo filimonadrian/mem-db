@@ -22,6 +22,7 @@
     "nodeOptions": {
         "name": "node-1",
         "masterID": "",
+        "heartbeatInterval": 10,
         "apiOptions": {
             "port": 8081,
             "useGRPC": false

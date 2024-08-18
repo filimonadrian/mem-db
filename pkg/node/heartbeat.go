@@ -2,16 +2,19 @@ package node
 
 import (
 	"context"
+	"fmt"
 	httpclient "mem-db/pkg/api/http/client"
+	"net/http"
 	"sync"
 	"time"
 )
 
 func (n *Node) sendHeartbeat(ctx context.Context, workerName string) bool {
-	resp, err := httpclient.SendGetRequest(ctx, httpclient.GetURL(workerName, n.Port, "/worker/heartbeat"), nil)
+	workerURL := httpclient.GetURL(workerName, n.Port, "/worker/heartbeat")
+	resp, err := httpclient.SendGetRequest(ctx, workerURL, nil)
 
 	if err != nil || resp.StatusCode != http.StatusOK {
-		n.Logger.Warn(fmt.Sprintf("Worker %s not responding", workerAddress))
+		n.Logger.Warn(fmt.Sprintf("Worker %s not responding", workerURL))
 		return false
 	}
 

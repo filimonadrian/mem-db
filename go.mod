@@ -3,7 +3,6 @@ module mem-db
 go 1.22.5
 
 require (
-	github.com/google/uuid v1.6.0
 	golang.org/x/sync v0.7.0
 	google.golang.org/grpc v1.65.0
 	k8s.io/client-go v0.31.0
@@ -22,6 +21,7 @@ require (
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect

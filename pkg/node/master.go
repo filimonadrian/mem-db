@@ -2,13 +2,17 @@ package node
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	config "mem-db/cmd/config"
+	log "mem-db/cmd/logger"
 	httpserver "mem-db/pkg/api/http/server"
+	"net/http"
 )
 
 type MasterHttpServer struct {
 	server *httpserver.HTTPServer
 	logger log.Logger
-	node   *Node
 }
 
 type WorkerDetails struct {
@@ -26,23 +30,21 @@ func NewMasterHttpServer(ctx context.Context, options *config.NodeOptions, node 
 		server: httpserver.NewServer(ctx, options.ApiOptions.Port),
 		logger: ctx.Value(log.LoggerKey).(log.Logger),
 	}
-	httpServer.server.Router.AddRoute("POST", "/master/register", httpServer.registerWorker)
-	httpServer.server.Router.AddRoute("POST", "/master/replicate", httpServer.registerWorker)
+	httpServer.server.Router.AddRoute("POST", "/master/register", node.registerWorker)
+	httpServer.server.Router.AddRoute("POST", "/master/replicate", node.replicate)
 
 	return httpServer
 }
 
-func (s *MasterHttpServer) Start(ctx context.Context) {
-	go node.StartHeartbeatCheck(ctx, 10*time.Second)
-
-	s.server.Start()
+func (s *MasterHttpServer) Start() error {
+	return s.server.Start()
 }
 
 func (s *MasterHttpServer) Stop(ctx context.Context) error {
 	return s.server.Stop(ctx)
 }
 
-func (s *MasterHttpServer) RegisterWorker(w http.ResponseWriter, r *http.Request) {
+func (n *Node) registerWorker(w http.ResponseWriter, r *http.Request) {
 	var wd *WorkerDetails = &WorkerDetails{}
 
 	err := json.NewDecoder(r.Body).Decode(wd)
@@ -54,12 +56,12 @@ func (s *MasterHttpServer) RegisterWorker(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	s.node.RegisterWorker(wd.Name)
+	n.RegisterWorker(wd.Name)
 	// send the db snapshot to the Worker
 	// for now, send just the location of the file
 
 	// broadcast the list of workers because it's changed
-	err = s.node.BroadcastWorkersList()
+	err = n.BroadcastWorkersList()
 	if err != nil {
 		json.NewEncoder(w).Encode(&Response{
 			Status:     "Bad Request",
@@ -75,11 +77,11 @@ func (s *MasterHttpServer) RegisterWorker(w http.ResponseWriter, r *http.Request
 }
 
 // used to forward POST requests in database to the workers' client api
-func (s *MasterHttpServer) Replicate(w http.ResponseWriter, r *http.Request) {
+func (n *Node) replicate(w http.ResponseWriter, r *http.Request) {
 
-	err := s.node.ForwardToWorkers(r)
+	err := n.ForwardToWorkers(r)
 	if err != nil {
-		s.logger.Error(fmt.Sprintf("Cannot replicate the request to the workers: %v", err.Error()))
+		n.Logger.Error(fmt.Sprintf("Cannot replicate the request to the workers: %v", err.Error()))
 		json.NewEncoder(w).Encode(&Response{
 			Status:     "Error",
 			StatusCode: http.StatusBadRequest,
@@ -87,6 +89,6 @@ func (s *MasterHttpServer) Replicate(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	s.logger.Debug("Replicated request to the workers")
+	n.Logger.Debug("Replicated request to the workers")
 	w.WriteHeader(http.StatusOK)
 }

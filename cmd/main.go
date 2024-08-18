@@ -6,6 +6,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	config "mem-db/cmd/config"
 	log "mem-db/cmd/logger"
+	node "mem-db/pkg/node"
 	service "mem-db/pkg/service"
 	"os"
 	"os/signal"
@@ -13,14 +14,18 @@ import (
 	"time"
 )
 
-func Shutdown(ctx context.Context, dbService service.Service) error {
+func Shutdown(ctx context.Context, dbService service.Service, nodeService node.NodeService) error {
 	select {
 	case <-ctx.Done():
 		shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 4*time.Second)
 		defer shutdownRelease()
 		if err := dbService.Stop(shutdownCtx); err != nil {
-			return fmt.Errorf("Error while stopping the server: ", err.Error())
+			return fmt.Errorf("Error while stopping DB service: ", err.Error())
 		}
+		if err := nodeService.Stop(shutdownCtx); err != nil {
+			return fmt.Errorf("Error while stopping Node Service: ", err.Error())
+		}
+
 	}
 	return nil
 }
@@ -53,6 +58,7 @@ func main() {
 
 	ctx = context.WithValue(ctx, log.LoggerKey, logger)
 	dbService := service.InitService(ctx, config)
+	nodeService := node.NewNodeService(ctx, &config.NodeOptions)
 
 	var wg errgroup.Group
 
@@ -64,9 +70,17 @@ func main() {
 		return nil
 	})
 
+	// handle NodeService Start
+	wg.Go(func() error {
+		if err = nodeService.Start(ctx); err != nil {
+			return fmt.Errorf("Error starting Node Service: %v", err)
+		}
+		return nil
+	})
+
 	//handle shutdown
 	wg.Go(func() error {
-		return Shutdown(ctx, dbService)
+		return Shutdown(ctx, dbService, nodeService)
 	})
 
 	if err := wg.Wait(); err != nil {

@@ -4,31 +4,55 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/google/uuid"
+	"fmt"
 	config "mem-db/cmd/config"
 	log "mem-db/cmd/logger"
+	api "mem-db/pkg/api"
 	httpclient "mem-db/pkg/api/http/client"
+	"net/http"
+	"time"
 )
 
 type Node struct {
-	Name             string              `json:"name"`
-	MasterID         string              `json:"masterID"`
-	PartitionMasters []string            `json:"patitionMasters"`
-	Workers          map[string]struct{} `json:"workers"`
-	Port             int                 `json:"port"`
-	Logger           log.Logger
+	Name              string
+	MasterID          string
+	PartitionMasters  []string
+	Workers           map[string]struct{}
+	Port              int
+	HeartbeatInterval int
+	Logger            log.Logger
+	Server            api.Server
 }
 
 func NewNode(ctx context.Context, options *config.NodeOptions) *Node {
 	node := &Node{
-		Name:             options.Name,
-		MasterID:         options.MasterID,
-		Workers:          make(map[string]struct{}{}),
-		PartitionMasters: make([]string, 0),
-		Logger:           ctx.Value(log.LoggerKey).(log.Logger),
-		Port:             options.ApiOptions.Port,
+		Name:              options.Name,
+		MasterID:          options.MasterID,
+		Workers:           make(map[string]struct{}),
+		PartitionMasters:  make([]string, 0),
+		Logger:            ctx.Value(log.LoggerKey).(log.Logger),
+		Port:              options.ApiOptions.Port,
+		HeartbeatInterval: options.HeartbeatInterval,
 	}
+
+	if node.IsMaster() {
+		node.Server = NewMasterHttpServer(ctx, options, node)
+	} else {
+		node.Server = NewWorkerHttpServer(ctx, options, node)
+	}
+
 	return node
+}
+
+func (n *Node) Start(ctx context.Context) error {
+	if n.IsMaster() {
+		go n.StartHeartbeatCheck(ctx, time.Duration(n.HeartbeatInterval)*time.Second)
+	}
+	return n.Server.Start()
+}
+
+func (n *Node) Stop(ctx context.Context) error {
+	return n.Server.Stop(ctx)
 }
 
 func (n *Node) IsMaster() bool {
@@ -95,11 +119,11 @@ func (n *Node) broadcast(endpoint string, payload []byte) error {
 // forward requests with words to the workers
 func (n *Node) ForwardToWorkers(originalRequest *http.Request) error {
 
-	for _, workerName := range n.Workers {
-		forwardURL = client.GetURL(workerName + originalRequest.RequestURI)
-		err := ForwardRequest(originalRequest, forwardURL)
+	for workerName, _ := range n.Workers {
+		forwardURL := httpclient.GetURL(workerName, n.Port, originalRequest.RequestURI)
+		err := httpclient.ForwardRequest(originalRequest, forwardURL)
 		if err != nil {
-			return fmt.Errorf("Failed to forward request to worker %s: %v", workerURL, err)
+			return fmt.Errorf("Failed to forward request to worker %s: %v", forwardURL, err)
 		}
 	}
 
@@ -113,8 +137,8 @@ func (n *Node) UpdateMasterID(masterID string) {
 func (n *Node) UpdateWorkersList(workers map[string]struct{}) error {
 
 	// delete myselft from workers list
-	delete(tempDict, n.Name)
-	n.Workers = tempDict
+	delete(workers, n.Name)
+	n.Workers = workers
 
 	return nil
 }

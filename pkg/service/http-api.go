@@ -6,7 +6,9 @@ import (
 	"fmt"
 	config "mem-db/cmd/config"
 	log "mem-db/cmd/logger"
+	"sync"
 	// api "mem-db/pkg/api"
+	httpclient "mem-db/pkg/api/http/client"
 	httpserver "mem-db/pkg/api/http/server"
 	"net/http"
 )
@@ -98,10 +100,19 @@ func (s *DBHttpServer) registerWords(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.wordSvc.RegisterWords(textInput.Text)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		err := httpclient.ForwardRequest(r, "http://localhost:8081/master/replicate")
+		if err != nil {
+			s.logger.Error("Cannot forward the request to the /master/replicate endpoint ", err.Error())
+		}
+	}()
 
-	// json.NewEncoder(w).Encode(fmt.Sprintf("Text processed successfully"))
 	json.NewEncoder(w).Encode(&Response{
 		Status:     "Success",
 		StatusCode: http.StatusOK,
 		Message:    "Text processed successfully"})
+
+	wg.Wait()
 }
