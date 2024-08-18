@@ -7,11 +7,16 @@ default: run
 .PHONY: tidy
 tidy:
 	go fmt ./...
+	go mod download
 	go mod tidy -v
 
 .PHONY: build
 build: tidy
 	go build -o=./${BINARY_NAME} ${MAIN_PACKAGE_PATH}
+
+.PHONY: docker-build
+docker-build: build
+	docker build -t "mem-db" .
 
 .PHONY: run
 run: build

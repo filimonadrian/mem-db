@@ -5,10 +5,6 @@
             "useGRPC": false
         }
     },
-    "replicationOptions": {
-        "master": true,
-        "maxWorkers": 5
-    },
     "walOptions": {
         "walFilePath": "data/wal-file.wal",
         "syncTimer": 10,
@@ -20,7 +16,7 @@
         "logFilepath": "data/memdb.log"
     },
     "nodeOptions": {
-        "name": "node-1",
+        "name": "node1.svc.cluster.local",
         "masterID": "",
         "heartbeatInterval": 10,
         "apiOptions": {

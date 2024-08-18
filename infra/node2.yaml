@@ -1,0 +1,89 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: node2
+  labels:
+    app: node2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: node2
+  template:
+    metadata:
+      labels:
+        app: node2
+    spec:
+      containers:
+      - name: node2
+        imagePullPolicy: IfNotPresent
+        image: mem-db:latest
+        command: ['./mem-db', '/etc/config/config.json']
+        volumeMounts:
+        - name: config
+          mountPath: /etc/config
+          readOnly: true
+        - name: data
+          mountPath: /data
+      restartPolicy: Always
+      volumes:
+      - name: config
+        configMap:
+          name: node2-configmap
+          items:
+          - key: config.json
+            path: config.json
+      - name: data
+        hostPath: 
+          path: /data
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: node2-configmap
+data:
+  config.json: |
+{
+    "serviceOptions": {
+        "apiOptions": {
+            "port": 8080,
+            "useGRPC": false
+        }
+    },
+    "walOptions": {
+        "walFilePath": "/data/wal-file.wal",
+        "syncTimer": 10,
+        "syncMaxBytes": 1000
+    },
+    "loggerOptions": {
+        "console": true,
+        "logLevel": "debug",
+        "logFilepath": "/data/memdb.log"
+    },
+    "nodeOptions": {
+        "name": "node2",
+        "masterID": "node1.svc.cluster.local",
+        "heartbeatInterval": 10,
+        "apiOptions": {
+            "port": 8081,
+            "useGRPC": false
+        }
+    }
+}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: node2-service
+spec:
+  type: ClusterIP
+  selector:
+    app: node2
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+    - protocol: TCP
+      port: 8081
+      targetPort: 8081
