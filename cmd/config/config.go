@@ -16,22 +16,23 @@ type ServiceOptions struct {
 	ApiOptions *ApiOptions `json:"apiOptions"`
 }
 
-type ReplicationOptions struct {
-	Master     bool `json:"master"`
-	MaxWorkers int  `json:"maxWorkers"`
-}
-
 type WALOptions struct {
 	WalFilePath  string `json:"walFilePath"`
 	SyncTimer    int    `json:"syncTimer"`
 	SyncMaxBytes int    `json:"syncMaxBytes"`
 }
 
+type NodeOptions struct {
+	Name       string      `json:"name"`
+	MasterID   string      `json:"masterID,omitempty"`
+	ApiOptions *ApiOptions `json:"apiOptions"`
+}
+
 type Config struct {
-	ServiceOptions     ServiceOptions       `json:"serviceOptions"`
-	ReplicationOptions ReplicationOptions   `json:"replicationOptions"`
-	WALOptions         WALOptions           `json:"walOptions"`
-	LoggerOptions      logger.LoggerOptions `json:"loggerOptions"`
+	ServiceOptions ServiceOptions       `json:"serviceOptions"`
+	WALOptions     WALOptions           `json:"walOptions"`
+	NodeOptions    NodeOptions          `json:"nodeOptions"`
+	LoggerOptions  logger.LoggerOptions `json:"loggerOptions"`
 }
 
 func ReadConfig(filePath string) (*Config, error) {

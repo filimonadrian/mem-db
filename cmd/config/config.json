@@ -18,5 +18,13 @@
         "console": true,
         "logLevel": "debug",
         "logFilepath": "data/memdb.log"
+    },
+    "nodeOptions": {
+        "name": "node-1",
+        "masterID": "",
+        "apiOptions": {
+            "port": 8081,
+            "useGRPC": false
+        }
     }
 }
