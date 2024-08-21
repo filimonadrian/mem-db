@@ -4,6 +4,7 @@ import (
 	"context"
 	log "mem-db/cmd/logger"
 	repo "mem-db/pkg/repository"
+	util "mem-db/pkg/util"
 	"strings"
 	"sync"
 	"unicode"
@@ -80,7 +81,7 @@ func (s *wordService) RegisterWords(text string) {
 
 	words := splitPhrase(text)
 
-	wp := NewWorkerPool(5)
+	wp := util.NewWorkerPool(5)
 	wp.Start()
 
 	// create a stream from words slice
