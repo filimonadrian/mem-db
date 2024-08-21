@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -14,13 +13,12 @@ func GetURL(address string, port int, endpoint string) string {
 	return fmt.Sprintf("http://%s:%d%s", address, port, endpoint)
 }
 
-func ForwardRequest(originalRequest *http.Request, forwardURL string) error {
-
+func ForwardRequest(ctx context.Context, originalRequest *http.Request, forwardURL string) error {
 	client := &http.Client{
 		Timeout: 2 * time.Second,
 	}
 
-	forwardedRequest, err := http.NewRequest(originalRequest.Method, forwardURL, originalRequest.Body)
+	forwardedRequest, err := http.NewRequestWithContext(ctx, originalRequest.Method, forwardURL, originalRequest.Body)
 	if err != nil {
 		return fmt.Errorf("Cannot create new Forward Request: %v", err.Error())
 	}
@@ -32,15 +30,14 @@ func ForwardRequest(originalRequest *http.Request, forwardURL string) error {
 		}
 	}
 
-	response, err := client.Do(forwardedRequest)
+	resp, err := client.Do(forwardedRequest)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error forwarding the request: %v", err)
 	}
-	defer response.Body.Close()
+	defer resp.Body.Close()
 
-	_, err = io.ReadAll(response.Body)
-	if err != nil {
-		return err
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("Unsuccessfully request to %s: %s", forwardURL, resp.Status)
 	}
 
 	return nil
