@@ -18,7 +18,7 @@ spec:
       containers:
       - name: node4
         imagePullPolicy: IfNotPresent
-        image: mem-db:latest
+        image: docker.io/library/mem-db:latest
         command: ['./mem-db', '/etc/config/config.json']
         volumeMounts:
         - name: config
@@ -36,7 +36,7 @@ spec:
             path: config.json
       - name: data
         hostPath: 
-          path: /data
+          path: /data/node4
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -44,33 +44,33 @@ metadata:
   name: node4-configmap
 data:
   config.json: |
-{
-    "serviceOptions": {
-        "apiOptions": {
-            "port": 8080,
-            "useGRPC": false
-        }
-    },
-    "walOptions": {
-        "walFilePath": "/data/wal-file.wal",
-        "syncTimer": 10,
-        "syncMaxBytes": 1000
-    },
-    "loggerOptions": {
-        "console": true,
-        "logLevel": "debug",
-        "logFilepath": "/data/memdb.log"
-    },
-    "nodeOptions": {
-        "name": "node4",
-        "masterID": "node3.svc.cluster.local",
-        "heartbeatInterval": 10,
-        "apiOptions": {
-            "port": 8081,
-            "useGRPC": false
+    {
+        "serviceOptions": {
+            "apiOptions": {
+                "port": 8080,
+                "useGRPC": false
+            }
+        },
+        "walOptions": {
+            "walFilePath": "/data/wal-file.wal",
+            "syncTimer": 10,
+            "syncMaxBytes": 1000
+        },
+        "loggerOptions": {
+            "console": true,
+            "logLevel": "debug",
+            "logFilepath": "/data/memdb.log"
+        },
+        "nodeOptions": {
+            "name": "node4-service.default.svc.cluster.local",
+            "masterID": "node3-service.default.svc.cluster.local",
+            "heartbeatInterval": 10,
+            "apiOptions": {
+                "port": 8081,
+                "useGRPC": false
+            }
         }
     }
-}
 ---
 apiVersion: v1
 kind: Service
@@ -81,9 +81,11 @@ spec:
   selector:
     app: node4
   ports:
-    - protocol: TCP
+    - name: db-service
+      protocol: TCP
       port: 8080
       targetPort: 8080
-    - protocol: TCP
+    - name: node-service
+      protocol: TCP
       port: 8081
       targetPort: 8081
