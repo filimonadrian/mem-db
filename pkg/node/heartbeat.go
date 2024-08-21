@@ -9,12 +9,12 @@ import (
 	"time"
 )
 
-func (n *Node) sendHeartbeat(ctx context.Context, workerName string) bool {
-	workerURL := httpclient.GetURL(workerName, n.Port, "/worker/heartbeat")
-	resp, err := httpclient.SendGetRequest(ctx, workerURL, nil)
+func (n *Node) sendHeartbeat(ctx context.Context, nodeName string) bool {
+	nodeURL := httpclient.GetURL(nodeName, n.Port, "/worker/heartbeat")
+	resp, err := httpclient.SendGetRequest(ctx, nodeURL, nil)
 
 	if err != nil || resp.StatusCode != http.StatusOK {
-		n.Logger.Warn(fmt.Sprintf("Worker %s not responding", workerURL))
+		n.Logger.Warn(fmt.Sprintf("Node %s not responding", nodeURL))
 		return false
 	}
 

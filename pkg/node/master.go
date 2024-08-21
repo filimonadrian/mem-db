@@ -1,9 +1,11 @@
 package node
 
 import (
+	// "bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	// "io"
 	config "mem-db/cmd/config"
 	log "mem-db/cmd/logger"
 	httpserver "mem-db/pkg/api/http/server"
@@ -13,16 +15,6 @@ import (
 type MasterHttpServer struct {
 	server *httpserver.HTTPServer
 	logger log.Logger
-}
-
-type WorkerDetails struct {
-	Name string `json:"name"`
-}
-
-type Response struct {
-	Status     string `json:"status"`
-	StatusCode int    `json:"statusCode"`
-	Message    string `json:"message,omitempty"`
 }
 
 func NewMasterHttpServer(ctx context.Context, options *config.NodeOptions, node *Node) *MasterHttpServer {
@@ -37,6 +29,7 @@ func NewMasterHttpServer(ctx context.Context, options *config.NodeOptions, node 
 }
 
 func (s *MasterHttpServer) Start() error {
+	s.logger.Info("Starting Master Node..")
 	return s.server.Start()
 }
 
@@ -45,10 +38,12 @@ func (s *MasterHttpServer) Stop(ctx context.Context) error {
 }
 
 func (n *Node) registerWorker(w http.ResponseWriter, r *http.Request) {
-	var wd *WorkerDetails = &WorkerDetails{}
+	var wd *NodeDetails = &NodeDetails{}
+	n.Logger.Info(fmt.Sprintf("%s %s", r.Method, r.URL))
 
 	err := json.NewDecoder(r.Body).Decode(wd)
 	if err != nil {
+		n.Logger.Error("Cannot decode workerDetails: ", err.Error())
 		json.NewEncoder(w).Encode(&Response{
 			Status:     "Bad Request",
 			StatusCode: http.StatusBadRequest,
@@ -63,6 +58,7 @@ func (n *Node) registerWorker(w http.ResponseWriter, r *http.Request) {
 	// broadcast the list of workers because it's changed
 	err = n.BroadcastWorkersList()
 	if err != nil {
+		n.Logger.Error("Cannot broadcast the list of workers: ", err.Error())
 		json.NewEncoder(w).Encode(&Response{
 			Status:     "Bad Request",
 			StatusCode: http.StatusBadRequest,
@@ -74,12 +70,16 @@ func (n *Node) registerWorker(w http.ResponseWriter, r *http.Request) {
 		Status:     "Success",
 		StatusCode: http.StatusOK,
 	})
+	n.Logger.Info("Workers list was successfully broadcasted")
 }
 
 // used to forward POST requests in database to the workers' client api
 func (n *Node) replicate(w http.ResponseWriter, r *http.Request) {
+	n.Logger.Info(fmt.Sprintf("%s %s", r.Method, r.URL))
 
-	err := n.ForwardToWorkers(r)
+	var err error
+	err = n.ForwardToWorkers(r)
+
 	if err != nil {
 		n.Logger.Error(fmt.Sprintf("Cannot replicate the request to the workers: %v", err.Error()))
 		json.NewEncoder(w).Encode(&Response{
