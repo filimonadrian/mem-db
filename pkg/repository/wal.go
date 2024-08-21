@@ -83,6 +83,9 @@ func (wal *WriteAheadLog) KeepSyncing(ctx context.Context) {
 	for {
 		select {
 		case <-wal.syncTimer.C:
+			if wal.bufWriter.Buffered() == 0 {
+				continue
+			}
 			wal.mutex.Lock()
 
 			wal.logger.Debug("Ticker for flushing data")
