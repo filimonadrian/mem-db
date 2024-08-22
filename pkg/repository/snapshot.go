@@ -17,33 +17,16 @@ type Snapshotter struct {
 	logger    log.Logger
 }
 
-func NewSnapshotter(ctx context.Context, options *config.SnapshotOptions, db *Database) *Snapshotter {
+func NewSnapshotter(ctx context.Context, options *config.SnapshotOptions) *Snapshotter {
 	return &Snapshotter{
 		dirPath:   options.DirPath,
-		syncTimer: time.NewTicker(time.Duration(options.SyncTimer) * time.Second),
+		syncTimer: time.NewTicker(time.Duration(options.SyncTimer) * time.Minute),
 		logger:    ctx.Value(log.LoggerKey).(log.Logger),
 	}
 }
 
 func generateSnapshotFilename() string {
 	return fmt.Sprintf("snapshot_%s.json", time.Now().Format("20060102_150405"))
-}
-
-func (s *Snapshotter) EncodeDatastore(db *Database) ([]byte, error) {
-
-	data := make(map[string]int)
-	db.datastore.Range(func(key, value interface{}) bool {
-		data[key.(string)] = value.(int)
-		return true
-	})
-
-	// Marshal the map into JSON
-	encodedData, err := json.Marshal(data)
-	if err != nil {
-		return nil, fmt.Errorf("Cannot encode map to JSON: %v", err)
-	}
-
-	return encodedData, nil
 }
 
 func (s *Snapshotter) SaveDataToFile(encodedData []byte) error {

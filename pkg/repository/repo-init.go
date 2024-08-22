@@ -7,16 +7,16 @@ import (
 	config "mem-db/cmd/config"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
-// receives the entire database config
-func InitDBSystem(ctx context.Context, options *config.WALOptions) (*Database, *WriteAheadLog, error) {
+func InitDBFromWal(ctx context.Context, options *config.WALOptions) (*Database, error) {
 	walFilePath := options.WalFilePath
 
 	// check if the path exists
 	dir := filepath.Dir(walFilePath)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		return nil, nil, fmt.Errorf("The directory %s does not exist: %v", dir, err)
+		return nil, fmt.Errorf("The directory %s does not exist: %v", dir, err)
 	}
 
 	wal := NewWAL(ctx, options)
@@ -25,7 +25,7 @@ func InitDBSystem(ctx context.Context, options *config.WALOptions) (*Database, *
 	_, err := os.Stat(walFilePath)
 
 	if err != nil && !os.IsNotExist(err) {
-		return nil, nil, fmt.Errorf("Cannot access file %s: %v", walFilePath, err)
+		return nil, fmt.Errorf("Cannot access file %s: %v", walFilePath, err)
 	}
 
 	if options.Restore && err == nil {
@@ -33,24 +33,24 @@ func InitDBSystem(ctx context.Context, options *config.WALOptions) (*Database, *
 		// retrieve data and move pointer to the end of the file
 		datastore, file, err := RecoverDB(walFilePath)
 		if err != nil {
-			return nil, nil, fmt.Errorf("Cannot recover database: %v", err.Error())
+			return nil, fmt.Errorf("Cannot recover database: %v", err.Error())
 		}
 
 		wal.SetFile(file)
 		if err := wal.Init(ctx); err != nil {
-			return nil, nil, fmt.Errorf("Failed to initialize WAL: %v", err)
+			return nil, fmt.Errorf("Failed to initialize WAL: %v", err)
 		}
-		return &Database{datastore: datastore}, wal, nil
+		return &Database{datastore: datastore, wal: wal}, nil
 	}
 
 	// If the WAL file doesn't exist, initialize a new WAL
 	if os.IsNotExist(err) {
 		if err := wal.Init(ctx); err != nil {
-			return nil, nil, fmt.Errorf("Failed to initialize WAL: %v", err)
+			return nil, fmt.Errorf("Failed to initialize WAL: %v", err)
 		}
 
-		return NewDatabase(ctx), wal, nil
+		return &Database{datastore: &sync.Map{}, wal: wal}, nil
 	}
 
-	return nil, nil, fmt.Errorf("Unexpected error while initializing DB system")
+	return nil, fmt.Errorf("Unexpected error while initializing DB system")
 }
