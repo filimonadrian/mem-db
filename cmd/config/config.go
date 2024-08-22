@@ -19,7 +19,13 @@ type ServiceOptions struct {
 type WALOptions struct {
 	WalFilePath  string `json:"walFilePath"`
 	SyncTimer    int    `json:"syncTimer"`
+	Restore      bool   `json:"restore"`
 	SyncMaxBytes int    `json:"syncMaxBytes"`
+}
+
+type SnapshotOptions struct {
+	DirPath   string `json:"dirPath"`
+	SyncTimer int    `json:"syncTimer"`
 }
 
 type NodeOptions struct {
@@ -30,10 +36,11 @@ type NodeOptions struct {
 }
 
 type Config struct {
-	ServiceOptions ServiceOptions       `json:"serviceOptions"`
-	WALOptions     WALOptions           `json:"walOptions"`
-	NodeOptions    NodeOptions          `json:"nodeOptions"`
-	LoggerOptions  logger.LoggerOptions `json:"loggerOptions"`
+	ServiceOptions  ServiceOptions       `json:"serviceOptions"`
+	SnapshotOptions SnapshotOptions      `json:"snapshotOptions"`
+	WALOptions      WALOptions           `json:"walOptions"`
+	NodeOptions     NodeOptions          `json:"nodeOptions"`
+	LoggerOptions   logger.LoggerOptions `json:"loggerOptions"`
 }
 
 func ReadConfig(filePath string) (*Config, error) {

@@ -6,14 +6,19 @@
         }
     },
     "walOptions": {
-        "walFilePath": "data/wal-file.wal",
+        "walFilePath": "data/wal/wal-file.wal",
+        "restore": true,
         "syncTimer": 10,
         "syncMaxBytes": 1000
+    },
+    "SnapshotOptions": {
+        "dirPath": "data/snapshot",
+        "syncTimer": 20
     },
     "loggerOptions": {
         "console": true,
         "logLevel": "debug",
-        "logFilepath": "data/memdb.log"
+        "logFilepath": "data/log/memdb.log"
     },
     "nodeOptions": {
         "name": "node1.svc.cluster.local",
