@@ -4,19 +4,18 @@ import (
 	"context"
 	"fmt"
 	"google.golang.org/grpc"
-	"log"
 	"mem-db/pkg/api"
 	service "mem-db/pkg/service"
 	"net"
 )
 
 type GRPCServer struct {
-	grpcServer *grpc.Server
+	server *grpc.Server
 }
 
-func NewServer(ctx context.Context, svc service.WordService) api.Server {
+func NewServer(ctx context.Context) api.Server {
 	return &GRPCServer{
-		grpcServer: grpc.NewServer(),
+		server: grpc.NewServer(),
 	}
 }
 
@@ -27,9 +26,9 @@ func (s *GRPCServer) Start(ctx context.Context) error {
 	}
 
 	log.Printf("gRPC server listening at %v", lis.Addr())
-	return s.grpcServer.Serve(lis)
+	return s.server.Serve(lis)
 }
 
 func (s *GRPCServer) Stop(ctx context.Context) error {
-	return nil
+	return s.server.GracefulStop()
 }
