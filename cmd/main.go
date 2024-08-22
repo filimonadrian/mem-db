@@ -7,6 +7,7 @@ import (
 	config "mem-db/cmd/config"
 	log "mem-db/cmd/logger"
 	node "mem-db/pkg/node"
+	repo "mem-db/pkg/repository"
 	service "mem-db/pkg/service"
 	"os"
 	"os/signal"
@@ -14,24 +15,19 @@ import (
 	"time"
 )
 
-func Shutdown(ctx context.Context, dbService service.Service, nodeService node.NodeService) error {
+func Shutdown(ctx context.Context, wordService service.WordService, nodeService node.NodeService) error {
 	select {
 	case <-ctx.Done():
 		shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 4*time.Second)
 		defer shutdownRelease()
-		if err := dbService.Stop(shutdownCtx); err != nil {
+		if err := wordService.Stop(shutdownCtx); err != nil {
 			return fmt.Errorf("Error while stopping DB service: %v", err.Error())
 		}
 		if err := nodeService.Stop(shutdownCtx); err != nil {
 			return fmt.Errorf("Error while stopping Node Service: %v", err.Error())
 		}
-
 	}
 	return nil
-}
-
-func StartSystem(ctx context.Context) {
-
 }
 
 func main() {
@@ -63,13 +59,17 @@ func main() {
 	ctx = context.WithValue(ctx, log.LoggerKey, logger)
 	nodeService := node.NewNodeService(ctx, &config.NodeOptions)
 
-	dbService := service.InitService(ctx, config)
+	dbService := repo.NewDatabase(ctx, config, nodeService.IsMaster())
+	wordService := service.NewWordService(ctx, config, dbService)
+
+	nodeService.SetRepo(dbService)
+	nodeService.SetWS(wordService)
 
 	var wg errgroup.Group
 
 	// handle Database Start
 	wg.Go(func() error {
-		if err = dbService.Start(ctx); err != nil {
+		if err = wordService.Start(ctx); err != nil {
 			return fmt.Errorf("Error starting DB Service: %v", err)
 		}
 		return nil
@@ -87,7 +87,7 @@ func main() {
 
 	//handle shutdown
 	wg.Go(func() error {
-		return Shutdown(ctx, dbService, nodeService)
+		return Shutdown(ctx, wordService, nodeService)
 	})
 
 	if err := wg.Wait(); err != nil {
