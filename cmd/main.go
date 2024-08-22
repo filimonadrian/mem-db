@@ -30,6 +30,10 @@ func Shutdown(ctx context.Context, dbService service.Service, nodeService node.N
 	return nil
 }
 
+func StartSystem(ctx context.Context) {
+
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		panic("Config file path is missing!")
@@ -57,8 +61,9 @@ func main() {
 	}
 
 	ctx = context.WithValue(ctx, log.LoggerKey, logger)
-	dbService := service.InitService(ctx, config)
 	nodeService := node.NewNodeService(ctx, &config.NodeOptions)
+
+	dbService := service.InitService(ctx, config)
 
 	var wg errgroup.Group
 
@@ -77,6 +82,8 @@ func main() {
 		}
 		return nil
 	})
+
+	logger.Info("Successfully started node")
 
 	//handle shutdown
 	wg.Go(func() error {

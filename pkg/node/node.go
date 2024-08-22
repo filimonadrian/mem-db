@@ -10,6 +10,7 @@ import (
 	log "mem-db/cmd/logger"
 	api "mem-db/pkg/api"
 	httpclient "mem-db/pkg/api/http/client"
+	util "mem-db/pkg/util"
 	"net/http"
 	"time"
 )
@@ -102,26 +103,6 @@ func (n *Node) runAsMaster() {
 
 }
 
-func Retry(ctx context.Context, f func() error, retryAttempts int, interval time.Duration) error {
-	var err error
-
-	for i := 0; i < retryAttempts; i++ {
-		err := f()
-		if err == nil {
-			return nil
-		}
-
-		select {
-		case <-time.After(interval):
-
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
-
-	return fmt.Errorf("All retries failed: %v", err)
-}
-
 func (n *Node) activateForwarding() error {
 	dbServiceURL := httpclient.GetURL("localhost", 8080, "/words/forward")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -138,7 +119,7 @@ func (n *Node) activateForwarding() error {
 		return nil
 	}
 
-	if err := Retry(ctx, forwardingFunc, 3, 1*time.Second); err != nil {
+	if err := util.Retry(ctx, forwardingFunc, 3, 1*time.Second); err != nil {
 		return fmt.Errorf("Cannot start forwarding to workers: %v", err)
 	}
 
