@@ -11,9 +11,9 @@
         "syncTimer": 10,
         "syncMaxBytes": 1000
     },
-    "SnapshotOptions": {
+    "snapshotOptions": {
         "dirPath": "data/snapshot",
-        "syncTimer": 20
+        "syncTimer": 1
     },
     "loggerOptions": {
         "console": true,
@@ -21,7 +21,7 @@
         "logFilepath": "data/log/memdb.log"
     },
     "nodeOptions": {
-        "name": "node1.svc.cluster.local",
+        "name": "node1-service.default.svc.cluster.local",
         "masterID": "",
         "heartbeatInterval": 10,
         "apiOptions": {
