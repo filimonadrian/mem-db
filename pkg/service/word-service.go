@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	config "mem-db/cmd/config"
 	log "mem-db/cmd/logger"
+	api "mem-db/pkg/api"
 	repo "mem-db/pkg/repository"
 	util "mem-db/pkg/util"
 	"strings"
@@ -11,14 +13,19 @@ import (
 )
 
 type wordService struct {
-	db     *repo.Database
-	wal    *repo.WriteAheadLog
-	logger log.Logger
+	db           repo.DBService
+	server       api.Server
+	logger       log.Logger
+	forwarding   bool
+	forwardingCh chan []byte
 }
 
 type WordService interface {
-	GetOccurences(terms string) []WordResponse
-	RegisterWords(text string)
+	Start(ctx context.Context) error
+	Stop(ctx context.Context) error
+	SetForwarding()
+	UnsetForwarding()
+	SetForwardingCh(forwardingCh chan []byte)
 }
 
 type WordResponse struct {
@@ -26,12 +33,34 @@ type WordResponse struct {
 	Occurrences int    `json:"occurrences"`
 }
 
-func NewWordService(ctx context.Context, db *repo.Database, wal *repo.WriteAheadLog) WordService {
-	return &wordService{
+func NewWordService(ctx context.Context, config *config.Config, db repo.DBService) WordService {
+	ws := &wordService{
 		db:     db,
-		wal:    wal,
 		logger: ctx.Value(log.LoggerKey).(log.Logger),
 	}
+
+	ws.server = NewDBHttpServer(ctx, &config.ServiceOptions, ws)
+	return ws
+}
+
+func (s *wordService) Start(ctx context.Context) error {
+	return s.server.Start()
+}
+
+func (s *wordService) Stop(ctx context.Context) error {
+	return s.server.Stop(ctx)
+}
+
+func (s *wordService) SetForwarding() {
+	s.forwarding = true
+}
+
+func (s *wordService) UnsetForwarding() {
+	s.forwarding = false
+}
+
+func (s *wordService) SetForwardingCh(forwardingCh chan []byte) {
+	s.forwardingCh = forwardingCh
 }
 
 func (s *wordService) GetOccurences(terms string) []WordResponse {
@@ -81,7 +110,7 @@ func (s *wordService) RegisterWords(text string) {
 
 	words := splitPhrase(text)
 
-	wp := util.NewWorkerPool(5)
+	wp := util.NewWorkerPool(15)
 	wp.Start()
 
 	// create a stream from words slice
@@ -103,10 +132,6 @@ func (s *wordService) RegisterWords(text string) {
 		word := strings.ToLower(word)
 		wp.Submit(func() {
 			s.db.Insert(word)
-			err := s.wal.Write([]byte(word + "\n"))
-			if err != nil {
-				s.logger.Error(err.Error())
-			}
 		})
 	}
 

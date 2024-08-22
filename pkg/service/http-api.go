@@ -4,23 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/sync/errgroup"
+	"io"
 	config "mem-db/cmd/config"
 	log "mem-db/cmd/logger"
-	"time"
-	// api "mem-db/pkg/api"
-	"bytes"
-	"io"
-	httpclient "mem-db/pkg/api/http/client"
+	api "mem-db/pkg/api"
+	// httpclient "mem-db/pkg/api/http/client"
+	// "time"
 	httpserver "mem-db/pkg/api/http/server"
 	"net/http"
 )
 
 type DBHttpServer struct {
-	server     *httpserver.HTTPServer
-	logger     log.Logger
-	wordSvc    WordService
-	forwarding bool
+	server *httpserver.HTTPServer
+	logger log.Logger
 }
 
 type TextInput struct {
@@ -34,25 +30,21 @@ type Response struct {
 	Message    string         `json:"message,omitempty"`
 }
 
-func NewDBHttpServer(ctx context.Context, options *config.ServiceOptions, svc WordService) Service { // api.Server {
+func NewDBHttpServer(ctx context.Context, options *config.ServiceOptions, ws *wordService) api.Server {
 
 	dbHttpServer := &DBHttpServer{
-		server:     httpserver.NewServer(ctx, options.ApiOptions.Port),
-		wordSvc:    svc,
-		logger:     ctx.Value(log.LoggerKey).(log.Logger),
-		forwarding: false,
+		server: httpserver.NewServer(ctx, options.ApiOptions.Port),
+		logger: ctx.Value(log.LoggerKey).(log.Logger),
 	}
 
-	dbHttpServer.server.Router.AddRoute("GET", "/words/occurences", dbHttpServer.getWordOccurences)
-	dbHttpServer.server.Router.AddRoute("POST", "/words/register", dbHttpServer.registerWords)
-	// this endpoint is especially for syncing the servers
-	// if i get a request, I will start to forward the request to the node-service
-	dbHttpServer.server.Router.AddRoute("GET", "/words/forward", dbHttpServer.startForwarding)
+	dbHttpServer.server.Router.AddRoute("GET", "/words/occurences", ws.getWordOccurences)
+	dbHttpServer.server.Router.AddRoute("POST", "/words/register", ws.registerWords)
 
 	return dbHttpServer
 }
 
-func (s *DBHttpServer) Start(ctx context.Context) error {
+func (s *DBHttpServer) Start() error {
+	s.logger.Info("Starting server for WordService")
 	return s.server.Start()
 }
 
@@ -61,7 +53,7 @@ func (s *DBHttpServer) Stop(ctx context.Context) error {
 }
 
 // GET /words/occurences?terms=apple,banana,orange
-func (s *DBHttpServer) getWordOccurences(w http.ResponseWriter, r *http.Request) {
+func (s *wordService) getWordOccurences(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	terms := query["terms"]
 
@@ -76,7 +68,7 @@ func (s *DBHttpServer) getWordOccurences(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	results := s.wordSvc.GetOccurences(terms[0])
+	results := s.GetOccurences(terms[0])
 
 	s.logger.Debug("Results of the request: ", results)
 	w.WriteHeader(http.StatusOK)
@@ -87,7 +79,7 @@ func (s *DBHttpServer) getWordOccurences(w http.ResponseWriter, r *http.Request)
 
 }
 
-func (s *DBHttpServer) registerWords(w http.ResponseWriter, r *http.Request) {
+func (s *wordService) registerWords(w http.ResponseWriter, r *http.Request) {
 
 	s.logger.Info(fmt.Sprintf("%s %s", r.Method, r.URL))
 
@@ -107,12 +99,9 @@ func (s *DBHttpServer) registerWords(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Reset the body for the original request so it can be decoded
-	r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+	var textInput TextInput
 
-	var textInput *TextInput = &TextInput{}
-
-	err = json.NewDecoder(r.Body).Decode(textInput)
+	err = json.Unmarshal(bodyBytes, &textInput)
 	if err != nil {
 		s.logger.Error("Cannot decode incoming request: ", err)
 		json.NewEncoder(w).Encode(&Response{
@@ -131,39 +120,14 @@ func (s *DBHttpServer) registerWords(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var wg errgroup.Group
-
-	// Reset the body for the original request so it can be decoded
-	r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-
 	if s.forwarding {
-		wg.Go(func() error {
-			s.logger.Info("Sending the INSERT request to the nodes service..")
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			defer cancel()
-			err := httpclient.ForwardRequest(ctx, r, "http://localhost:8081/master/replicate")
-			if err != nil {
-				return fmt.Errorf("Cannot forward the request to the /master/replicate endpoint ", err)
-			}
-
-			return nil
-		})
+		s.forwardingCh <- bodyBytes
 	}
 
-	s.wordSvc.RegisterWords(textInput.Text)
+	s.RegisterWords(textInput.Text)
 
 	json.NewEncoder(w).Encode(&Response{
 		Status:     "Success",
 		StatusCode: http.StatusOK,
 		Message:    "Text processed successfully"})
-
-	if err = wg.Wait(); err != nil {
-		s.logger.Error(err)
-	}
-}
-
-func (s *DBHttpServer) startForwarding(w http.ResponseWriter, r *http.Request) {
-	s.logger.Debug("Received forwarding flag. All post request will be forwarded to the workers")
-	s.forwarding = true
-	w.WriteHeader(http.StatusOK)
 }
