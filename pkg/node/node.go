@@ -10,20 +10,24 @@ import (
 	log "mem-db/cmd/logger"
 	api "mem-db/pkg/api"
 	httpclient "mem-db/pkg/api/http/client"
-	util "mem-db/pkg/util"
-	"net/http"
+	repo "mem-db/pkg/repository"
+	service "mem-db/pkg/service"
+	// util "mem-db/pkg/util"
 	"time"
 )
 
 type Node struct {
 	Name              string
 	MasterID          string
-	PartitionMasters  []string
+	PartitionMasters  map[string]struct{}
 	Workers           map[string]struct{}
 	Port              int
 	HeartbeatInterval int
 	Logger            log.Logger
+	forwardingCh      chan []byte
 	Server            api.Server
+	db                repo.DBService
+	ws                service.WordService
 }
 
 type NodeDetails struct {
@@ -41,10 +45,11 @@ func NewNode(ctx context.Context, options *config.NodeOptions) *Node {
 		Name:              options.Name,
 		MasterID:          options.MasterID,
 		Workers:           make(map[string]struct{}),
-		PartitionMasters:  make([]string, 0),
+		PartitionMasters:  make(map[string]struct{}),
 		Logger:            ctx.Value(log.LoggerKey).(log.Logger),
 		Port:              options.ApiOptions.Port,
 		HeartbeatInterval: options.HeartbeatInterval,
+		forwardingCh:      make(chan []byte),
 	}
 
 	if node.IsMaster() {
@@ -70,12 +75,10 @@ func (n *Node) Start(ctx context.Context) error {
 	time.Sleep(2 * time.Second)
 
 	if n.IsMaster() {
+		n.SetForwardingCh()
 		n.Logger.Info("Starting Hearbeat process..")
-		err := n.activateForwarding()
-		if err != nil {
-			n.Logger.Error(err.Error())
-		}
 		go n.StartHeartbeatCheck(ctx, time.Duration(n.HeartbeatInterval)*time.Second)
+		go n.replicateToWorkers(ctx, false)
 	} else {
 		err := n.SendRegistrationReq()
 		if err != nil {
@@ -92,7 +95,16 @@ func (n *Node) Start(ctx context.Context) error {
 }
 
 func (n *Node) Stop(ctx context.Context) error {
+	close(n.forwardingCh)
 	return n.Server.Stop(ctx)
+}
+
+func (n *Node) SetRepo(db repo.DBService) {
+	n.db = db
+}
+
+func (n *Node) SetWS(ws service.WordService) {
+	n.ws = ws
 }
 
 func (n *Node) IsMaster() bool {
@@ -101,58 +113,6 @@ func (n *Node) IsMaster() bool {
 
 func (n *Node) runAsMaster() {
 
-}
-
-func (n *Node) activateForwarding() error {
-	dbServiceURL := httpclient.GetURL("localhost", 8080, "/words/forward")
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	forwardingFunc := func() error {
-		resp, err := httpclient.SendGetRequest(ctx, dbServiceURL, nil)
-		if err != nil {
-			return fmt.Errorf("Request failed: %v", err)
-		}
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("Unexpected status code: %d", resp.StatusCode)
-		}
-		return nil
-	}
-
-	if err := util.Retry(ctx, forwardingFunc, 3, 1*time.Second); err != nil {
-		return fmt.Errorf("Cannot start forwarding to workers: %v", err)
-	}
-
-	return nil
-}
-
-// call from master to add worker to the workers list
-func (n *Node) RegisterWorker(workerName string) {
-	n.Logger.Info(fmt.Sprintf("Registered node %s as worker", workerName))
-	n.Workers[workerName] = struct{}{}
-}
-
-func (n *Node) DeleteWorker(workerName string) {
-	n.Logger.Warn(fmt.Sprintf("Deleted worker %s from list", workerName))
-	delete(n.Workers, workerName)
-	n.Logger.Warn("Active Workers: ", n.Workers)
-}
-
-// send the list of workers to every other worker
-// workers should delete themselves from the list
-func (n *Node) BroadcastWorkersList() error {
-
-	payload, err := json.Marshal(n.Workers)
-	if err != nil {
-		return fmt.Errorf("Error marshaling workers list: %v\n", err)
-	}
-	n.Logger.Info("Broadcasting workers list..")
-	err = n.broadcast("/worker/workers-list", payload)
-	if err != nil {
-		return fmt.Errorf("Errors broadcasting the workers list: %v\n", err)
-	}
-
-	return nil
 }
 
 // special request when I'm elected as leader
@@ -185,30 +145,6 @@ func (n *Node) broadcast(endpoint string, payload []byte) error {
 		return allErrs
 	}
 
-	return nil
-}
-
-// forward requests with words to the workers
-func (n *Node) ForwardToWorkers(originalRequest *http.Request) error {
-
-	n.Logger.Debug("Started forwarding the request to the workers: ", n.Workers)
-	var errs error
-	for workerName, _ := range n.Workers {
-		forwardURL := httpclient.GetURL(workerName, 8080, "/words/register")
-		n.Logger.Debug("Forwarding the request to  ", forwardURL)
-
-		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
-		defer cancel()
-
-		err := httpclient.ForwardRequest(ctx, originalRequest, forwardURL)
-		if err != nil {
-			errs = errors.Join(errs, fmt.Errorf("Failed to forward request to worker %s: %v", forwardURL, err))
-		}
-	}
-
-	if errs != nil {
-		return errs
-	}
 	return nil
 }
 
@@ -246,4 +182,24 @@ func (n *Node) SendRegistrationReq() error {
 
 	n.Logger.Info("Successfully registered to the master ", n.MasterID)
 	return nil
+}
+
+func (n *Node) LoadDatastore(encodedData []byte) error {
+	return n.db.LoadDatastore(encodedData)
+}
+
+func (n *Node) GetEncodedDatastore() ([]byte, error) {
+	return n.db.EncodeDatastore()
+}
+
+// methods for interacting with words service
+func (n *Node) SetForwarding() {
+	n.ws.SetForwarding()
+}
+func (n *Node) SetForwardingCh() {
+	n.ws.SetForwardingCh(n.forwardingCh)
+}
+
+func (n *Node) UnsetForwarding() {
+	n.ws.UnsetForwarding()
 }
