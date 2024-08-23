@@ -58,6 +58,10 @@ func NewNode(ctx context.Context, options *config.NodeOptions) *Node {
 		node.Server = NewWorkerHttpServer(ctx, options, node)
 	}
 
+	if options.LeaderElection {
+		go node.leaderElection(ctx, options)
+	}
+
 	return node
 }
 
@@ -76,6 +80,9 @@ func (n *Node) Start(ctx context.Context) error {
 
 	if n.IsMaster() {
 		n.SetForwardingCh()
+		if len(n.Workers) > 0 {
+			n.SetForwarding()
+		}
 		n.Logger.Info("Starting Hearbeat process..")
 		go n.StartHeartbeatCheck(ctx, time.Duration(n.HeartbeatInterval)*time.Second)
 		go n.replicateToWorkers(ctx, false)
@@ -109,10 +116,6 @@ func (n *Node) SetWS(ws service.WordService) {
 
 func (n *Node) IsMaster() bool {
 	return n.MasterID == ""
-}
-
-func (n *Node) runAsMaster() {
-
 }
 
 // special request when I'm elected as leader

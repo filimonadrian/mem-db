@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package service;
+option go_package = "mem-db/pkg/proto/service;service";
+
+service WordService {
+  rpc GetWordOccurences (GetWordOccurrencesRequest) returns (GetWordOccurrencesResponse);
+  rpc RegisterWordsG (RegisterWordsRequest) returns (RegisterWordsResponse);
+}
+
+message GetWordOccurrencesRequest {
+  string terms = 1;
+}
+
+message GetWordOccurrencesResponse {
+  string status = 1;
+  int32 statusCode = 2;
+  repeated WordResponse data = 3;
+  string message = 4;
+}
+
+message RegisterWordsRequest {
+  string text = 1;
+}
+
+message RegisterWordsResponse {
+  string status = 1;
+  int32 statusCode = 2;
+  string message = 3;
+}
+
+message WordResponse {
+  string word = 1;
+  int32 occurrences = 2;
+}
+

@@ -110,7 +110,7 @@ func (n *Node) replicateToWorkers(ctx context.Context, isGRPC bool) {
 				}
 			}
 		case <-ctx.Done():
-			close(n.forwardingCh)
+			// close(n.forwardingCh)
 			return
 		}
 	}
