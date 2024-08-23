@@ -24,6 +24,7 @@
         "name": "node1-service.default.svc.cluster.local",
         "masterID": "",
         "heartbeatInterval": 10,
+        "leaderElection": false,
         "apiOptions": {
             "port": 8081,
             "useGRPC": false

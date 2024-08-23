@@ -15,6 +15,7 @@ spec:
       labels:
         app: node4
     spec:
+      serviceAccountName: leader-election-sa
       containers:
       - name: node4
         imagePullPolicy: IfNotPresent
@@ -70,6 +71,7 @@ data:
             "name": "node4-service.default.svc.cluster.local",
             "masterID": "node3-service.default.svc.cluster.local",
             "heartbeatInterval": 10,
+            "leaderElection": true,
             "apiOptions": {
                 "port": 8081,
                 "useGRPC": false

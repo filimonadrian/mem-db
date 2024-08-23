@@ -33,6 +33,7 @@ type NodeOptions struct {
 	MasterID          string      `json:"masterID,omitempty"`
 	HeartbeatInterval int         `json:"heartbeatInterval"`
 	ApiOptions        *ApiOptions `json:"apiOptions"`
+	LeaderElection    bool        `json:"leaderElection"`
 }
 
 type Config struct {
