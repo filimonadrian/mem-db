@@ -33,7 +33,7 @@ func NewDatabase(ctx context.Context, config *config.Config, isMaster bool) *Dat
 	if !isMaster {
 		wal := NewWAL(ctx, &config.WALOptions)
 		if err := wal.Init(ctx); err != nil {
-			panic(fmt.Sprintf("Failed to initialize WAL: ", err))
+			panic(fmt.Sprintf("Failed to initialize WAL: %v", err.Error()))
 		}
 		db := &Database{
 			datastore:   &sync.Map{},
@@ -48,7 +48,7 @@ func NewDatabase(ctx context.Context, config *config.Config, isMaster bool) *Dat
 
 	db, err = InitDBFromWal(ctx, &config.WALOptions)
 	if err != nil {
-		panic(fmt.Sprintf("Cannot restore MasterDB from wal", err))
+		panic(fmt.Sprintf("Cannot restore MasterDB from wal: %v", err.Error()))
 	}
 
 	db.snapshotter = snapshotter
@@ -77,6 +77,10 @@ func (db *Database) Get(word string) int {
 		return val.(int)
 	}
 	return 0
+}
+
+func (db *Database) SetDatastore(datastore *sync.Map) {
+	db.datastore = datastore
 }
 
 func (db *Database) EncodeDatastore() ([]byte, error) {
